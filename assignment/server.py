@@ -138,7 +138,9 @@ def get_response(request, usern, client):
             elif tokens[1] == 'Password':
                 return authen_passw(tokens[2], usern, client)
 
-    return False, 'Error. Invalid command\n'
+    status = 'ERROR command\n'
+    msg = 'Error. Invalid command'
+    return False, status + msg
 
 # connection handler, handle new clients connect to the server
 def conn_handler():
