@@ -13,6 +13,7 @@ def login(usern):
     clients[usern]['last_activate_time'] = datetime.now()
     # implement broadcast login here...
 
+# returns logout_flag and response
 def logout(usern, client_addr, is_timeout):
     clients[usern]['status'] = 'logout'
     addr_to_user[client_addr] = None
@@ -22,39 +23,63 @@ def logout(usern, client_addr, is_timeout):
         return status + msg
     # user actively logout
     status = 'OK logout\n'
-    return status
+    return True, status
 
+# check if usern is blocked
+def check_blocked(usern):
+    is_blocked = False
+    if usern and clients[usern]['status'] == 'blocked':
+        has_blocked_time = datetime.now() - clients[usern]['blocked_time']
+        if has_blocked_time.seconds >= block_duration:
+            # unblock
+            clients[usern]['status'] = 'logout'
+        else:
+            # rsp: account is blocked
+            is_blocked = True
+    return is_blocked
+
+# returns logout_flag and response
 def authen_usern(input_usern, client_addr):
     if input_usern in credentials.keys():
-        addr_to_user[client_addr] = input_usern
-        clients[input_usern]['status'] = 'authen'
-        return 'authenticate Password\n'
+        # if usern is blocked
+        if check_blocked(input_usern):
+            status = 'ERROR login\n'
+            msg = 'Your account is blocked due to multiple login failures. '\
+                + 'Please try again later'
+            return True, status + msg
+        else:
+            addr_to_user[client_addr] = input_usern
+            clients[input_usern]['status'] = 'authen'
+            return False, 'authenticate Password\n'
 
     # response: line1 - responseStatus, line2 - message
     status = 'authenticate Username\n'
     msg = 'Invalid Username. Please try again'
-    return status + msg
+    return False, status + msg
 
+# returns logout_flag and response
 def authen_passw(passw, usern):
     if credentials[usern] == passw:
         login(usern)
         status = 'OK login\n'
         msg = 'Welcome to the greatest messaging application ever!'
-        return status + msg
+        return False, status + msg
     
     if 'count' in clients[usern].keys():
         clients[usern]['count'] += 1
         if clients[usern]['count'] == 3:
+            clients[usern]['status'] = 'blocked'
+            clients[usern]['blocked_time'] = datetime.now()
             status = 'ERROR login\n'
             msg = 'Invalid Password. Your account has been blocked. ' \
                 + 'Please try again later'
-            return status + msg
+            return True, status + msg
     else:
         clients[usern]['count'] = 1
 
     status = 'authenticate Password\n'
     msg = 'Invalid Password. Please try again'
-    return status + msg
+    return False, status + msg
 
 def display_online_users():
     return ''
@@ -76,34 +101,35 @@ def send_msg(tokens):
     #message = str(tokens[2])
     return ''
 
+# returns logout_flag and response
 def get_response(request, usern, client_addr):
     tokens = request.split()
     if len(tokens) == 1:
         if tokens[0] == 'whoelse':
-            return display_online_users()
+            return False, display_online_users()
         elif tokens[0] == 'logout':
             return logout(usern, client_addr, False)
 
     elif len(tokens) == 2:
         if tokens[0] == 'broadcast':
-            return broadcast()
+            return False, broadcast()
         elif tokens[0] == 'whoelsesince':
-            return whoelsesince()
+            return False, whoelsesince()
         elif tokens[0] == 'block':
-            return block()
+            return False, block()
         elif tokens[0] == 'unblock':
-            return unblock()
+            return False, unblock()
 
     elif len(tokens) == 3:
         if tokens[0] == 'message':
-            return send_msg(tokens)
+            return False, send_msg(tokens)
         elif tokens[0] == 'authenticate':
             if tokens[1] == 'Username':
                 return authen_usern(tokens[2], client_addr)
             elif tokens[1] == 'Password':
                 return authen_passw(tokens[2], usern)
 
-    return 'Error. Invalid command\n'
+    return False, 'Error. Invalid command\n'
 
 def request_handler(client_socket, client_addr):
     response = ''
@@ -126,23 +152,18 @@ def request_handler(client_socket, client_addr):
             #print('now: ', datetime.now())
             #print('timeout: {}, diff: {}'.format(timeout, (datetime.now() - clients[usern]['last_activate_time']).seconds))
 
-            logout_flag = True
-            response += logout(usern, client_addr, True)
+            logout_flag, response = logout(usern, client_addr, True)
         else:
             try:
                 # Get the request data
                 request = client_socket.recv(2048).decode()
-                if request:     
-                    #For debug:
-                    print('request: ', request)
                     
-                    if request == 'logout':
-                        logout_flag = True
-                        response += logout(usern, client_addr, False)
-                    else:
-                        if usern and clients[usern]['status'] == 'login':
-                            clients[usern]['last_activate_time'] = datetime.now()
-                        response += get_response(request, usern, client_addr)
+                #For debug:
+                print('request: ', request)
+                
+                if usern and clients[usern]['status'] == 'login':
+                    clients[usern]['last_activate_time'] = datetime.now()
+                logout_flag, response = get_response(request, usern, client_addr)
             except:
                 # if no request catched, continue
                 pass
@@ -161,7 +182,7 @@ def main():
     # Store clients info in this dictionary
     # clients = {username: user_info_dict}
     user_info_keys = ['client_addr', 'login_time', 'status', 
-                      'last_activate_time', 'block_time']
+                      'last_activate_time', 'blocked_time']
     clients = defaultdict(lambda: dict.fromkeys(user_info_keys))
     # addr_to_user = {client_addr: username}
     addr_to_user = {}
@@ -201,6 +222,8 @@ def main():
         while not logout_flag:
             # return False if logout (either from user msg or timeout)
             logout_flag = request_handler(client_socket, client_addr)
+            if logout_flag:
+                print('closing...')
 
         # Close the connection
         client_socket.close()                

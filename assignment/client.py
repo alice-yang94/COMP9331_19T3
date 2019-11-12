@@ -31,8 +31,10 @@ def data_handler(data):
         curr_state = 'logout'
         return ''
 
-    # status[0] == 'ERROR'
+    # other status[0]: 'ERROR'
     if status[1] == 'login':
+        # ERROR login: account blocked due to multiple wrong passwords
+        curr_state = 'logout'
         return ''
     else:
         # implement other status types
@@ -72,7 +74,8 @@ def main():
             and sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
             request = sys.stdin.readline()
             if request:
-                request = request.encode()
+                # remove newline by [:-1]
+                request = request[:-1].encode()
                 clientSocket.sendto(request, server_address)
 
     # Close the socket
