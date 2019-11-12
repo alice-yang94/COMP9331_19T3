@@ -1,5 +1,5 @@
 #! /usr/bin/python3
-
+#ref: https://repolinux.wordpress.com/2012/10/09/non-blocking-read-from-stdin-in-python/
 """Treat input if available, otherwise exit without
 blocking"""
 
