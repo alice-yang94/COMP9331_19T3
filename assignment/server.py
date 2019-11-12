@@ -33,6 +33,7 @@ def check_blocked(usern):
         if has_blocked_time.seconds >= block_duration:
             # unblock
             clients[usern]['status'] = 'logout'
+            clients[usern]['count'] = 0
         else:
             # rsp: account is blocked
             is_blocked = True
@@ -59,6 +60,13 @@ def authen_usern(input_usern, client):
 
 # returns logout_flag and response
 def authen_passw(passw, usern, client):
+    if check_blocked(usern):
+        status = 'ERROR login\n'
+        msg = 'Your account is blocked due to multiple login failures. '\
+            + 'Please try again later'
+        return True, status + msg
+
+    clients[usern]['status'] = 'authen'
     if credentials[usern] == passw:
         login(usern)
         status = 'OK login\n'
@@ -165,7 +173,10 @@ def request_handler(client, usern, client_socket):
         if usern and clients[usern]['status'] == 'login':
             clients[usern]['last_activate_time'] = datetime.now()
         logout_flag, response = get_response(request, usern, client)
+        
         if response:
+            #debug:
+            print('response: ', response)
             # Send the responseStatus and message back to the client
             client_socket.send(response.encode())
         if logout_flag:
