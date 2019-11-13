@@ -16,6 +16,8 @@ def login(usern):
 
 # returns logout_flag and response
 def logout(usern, client, is_timeout):
+    # implement broadcast logout here...
+
     clients[usern]['status'] = 'logout'
     if is_timeout:
         status = 'TIMEOUT logout\n'
@@ -90,13 +92,29 @@ def authen_passw(passw, usern, client):
     msg = 'Invalid Password. Please try again'
     return False, status + msg
 
-def display_online_users():
-    return ''
+def whoelse(me):
+    all_users = clients.keys()
+    other_users = [user for user in all_users if user != me]
+    status = 'OK whoelse\n'
+    msg = '\n'.join(other_users)
+    if not other_users:
+        msg = 'No one else is online now.'
+    return status + msg
+
+def whoelsesince(me, past_time):
+    curr_time = datetime.now()
+    other_users_since = []
+    for user in clients:
+        diff = (curr_time - clients[user]['login_time']).seconds
+        if user != me and diff <= past_time:
+            other_users_since.append(user)
+    status = 'OK whoelsesince\n'
+    msg = '\n'.join(other_users_since)
+    if not other_users_since:
+        msg = 'No one else is logged in since ' + str(past_time) + ' seconds ago.'
+    return status + msg
 
 def broadcast():
-    return ''
-
-def whoelsesince():
     return ''
 
 def block():
@@ -113,9 +131,19 @@ def send_msg(tokens):
 # returns logout_flag and response
 def get_response(request, usern, client):
     tokens = request.split()
+    if len(tokens) == 3 and tokens[0] == 'authenticate':
+        if tokens[1] == 'Username':
+            return authen_usern(tokens[2], client)
+        elif tokens[1] == 'Password':
+            return authen_passw(tokens[2], usern, client)
+    if len(tokens) > 3 and tokens[0] == 'authenticate':
+        status = 'authenticate ' + tokens[1] + '\n'
+        msg = 'Invalid ' + tokens[1] + '. Please try again.'
+        return False, status + msg
+
     if len(tokens) == 1:
         if tokens[0] == 'whoelse':
-            return False, display_online_users()
+            return False, whoelse(usern)
         elif tokens[0] == 'logout':
             return logout(usern, client, False)
 
@@ -123,7 +151,12 @@ def get_response(request, usern, client):
         if tokens[0] == 'broadcast':
             return False, broadcast()
         elif tokens[0] == 'whoelsesince':
-            return False, whoelsesince()
+            try:
+                past_time = int(tokens[1])
+                return False, whoelsesince(usern, past_time)
+            except:
+                # if second parameter not integer, invalid command 
+                pass
         elif tokens[0] == 'block':
             return False, block()
         elif tokens[0] == 'unblock':
@@ -132,11 +165,6 @@ def get_response(request, usern, client):
     elif len(tokens) == 3:
         if tokens[0] == 'message':
             return False, send_msg(tokens)
-        elif tokens[0] == 'authenticate':
-            if tokens[1] == 'Username':
-                return authen_usern(tokens[2], client)
-            elif tokens[1] == 'Password':
-                return authen_passw(tokens[2], usern, client)
 
     status = 'ERROR command\n'
     msg = 'Error. Invalid command'
@@ -172,6 +200,8 @@ def request_handler(client, usern, client_socket):
     try:
         # Get the request data
         request = client_socket.recv(2048).decode()
+        #debug:
+        print('request: ', request)
         if usern and clients[usern]['status'] == 'login':
             clients[usern]['last_activate_time'] = datetime.now()
         logout_flag, response = get_response(request, usern, client)

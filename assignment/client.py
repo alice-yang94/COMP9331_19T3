@@ -22,6 +22,8 @@ def data_handler(data):
         if status[1] == 'login' or status[1] == 'logout':
             curr_state = status[1]
             return ''
+        elif status[1] == 'whoelse' or status[1] == 'whoelsesince' :
+            return ''
         else:
             # implement other status types
             return ''
@@ -77,6 +79,8 @@ def main():
                 # remove newline by [:-1]
                 request = request[:-1].encode()
                 clientSocket.sendto(request, server_address)
+            else:
+                print('Error. Empty command')
 
     # Close the socket
     clientSocket.close()
