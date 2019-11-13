@@ -18,36 +18,19 @@ def data_handler(data):
         # format: authenticate Username/Password xxx
         return ' '.join([status[0], status[1], response])
 
-    no_rsp_need = ['whoelse', 'whoelsesince', 'broadcast', 'broadcasted',
-        'presence']
-    if status[0] == 'OK':
-        if status[1] == 'login' or status[1] == 'logout':
-            curr_state = status[1]
-            return ''
-        elif status[1] in no_rsp_need:
-            return ''
-        else:
-            # implement other status types
-            return ''
+    # change current state of client of login/logout
+    if status[0] == 'OK' \
+        and (status[1] == 'login' or status[1] == 'logout'):
+        curr_state = status[1]
 
-    # received timeout msg from server due to inactivity
-    if status[0] == 'TIMEOUT':
+    # logout if received timeout msg from server due to inactivity
+    # or account blocked due to multiple attempts of wrong passwords
+    elif status[0] == 'TIMEOUT' \
+        or (status[0] == 'ERROR' and status[1] == 'login'):
         curr_state = 'logout'
-        return ''
 
-    # RECV message, received message from another user
-    if status[0] == 'RECV':
-        return ''
-
-    # other status[0]: 'ERROR'
-    if status[1] == 'login':
-        # ERROR login: account blocked due to multiple wrong passwords
-        curr_state = 'logout'
-        return ''
-    else:
-        # ERROR message, do nothing except show msg
-        # implement other status types
-        return ''
+    # all other status is used for debugging, no respond needed
+    return ''
 
 def main():
     # Read server name and port number from command line
