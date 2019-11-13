@@ -35,6 +35,10 @@ def data_handler(data):
         curr_state = 'logout'
         return ''
 
+    # RECV message, received message from another user
+    if status[0] == 'RECV':
+        return ''
+
     # other status[0]: 'ERROR'
     if status[1] == 'login':
         # ERROR login: account blocked due to multiple wrong passwords

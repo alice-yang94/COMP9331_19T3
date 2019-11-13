@@ -154,10 +154,21 @@ def block():
 def unblock():
     return ''
 
-def send_msg(tokens):
-    #user = str(tokens[1])
-    #message = str(tokens[2])
-    return ''
+def send_msg(sender, receiver, msg):
+    if receiver in credentials.keys() and receiver != sender:
+        recv_msg = 'RECV message\n' + sender + ': ' + msg
+        if clients[receiver]['status'] == 'login':
+            csocket, _ = clients[receiver]['socket_and_addr']
+            csocket.send(recv_msg.encode())
+        else:
+            clients[receiver]['offline_msg'].append(recv_msg)
+        sender_status = 'OK message\n'
+        return sender_status
+    
+    # receiver is invalid, either sender itself or not found
+    sender_status = 'ERROR message\n'
+    sender_msg = 'Error. Invalid user'
+    return sender_status + sender_msg
 
 # returns logout_flag and response
 def get_response(request, usern, client):
@@ -196,8 +207,8 @@ def get_response(request, usern, client):
             return False, unblock()
 
     if len(tokens) >= 3 and tokens[0] == 'message':
-        _, _, msg = request.split(' ', 2)
-        return False, send_msg(msg)
+        _, receiver, msg = request.split(' ', 2)
+        return False, send_msg(usern, receiver, msg)
 
     status = 'ERROR command\n'
     msg = 'Error. Invalid command'
@@ -270,21 +281,28 @@ def recv_handler():
 def send_handler():
     while True:
         with t_lock:
-            clients_logout = []
-            for client in addr_to_user:
-                usern = addr_to_user[client]
+            all_online_users = online_users()
+            for usern in all_online_users:
+                client = clients[usern]['socket_and_addr']
                 client_socket, _ = client
-                # if the client has username and its status is login
-                if usern and clients[usern]['status'] == 'login' and \
-                    ((datetime.now() - clients[usern]['last_activate_time']).seconds) >= timeout:
+                # client has timeout due to inactivity
+                diff = datetime.now() - clients[usern]['last_activate_time']
+                if diff.seconds >= timeout:
                     _, msg = logout(usern, client, True)
+                    # send timeout logout msg to client
                     client_socket.send(msg.encode())
-                    clients_logout.append(client)
+                    # remove logged out client from addr_to_user dict
+                    addr_to_user.pop(client, None)
                     # for debug
                     print('closing connection: ', client)
+                    # close conn
                     client_socket.close()
-            for client in clients_logout:
-                addr_to_user.pop(client, None)
+                else:
+                    # if client not timeout, send offline msg if there is
+                    for msg in clients[usern]['offline_msg']:
+                        client_socket.send(msg.encode())
+                    clients[usern]['offline_msg'] = []
+
             t_lock.notify()
         # sleep for 1s
         time.sleep(UPDATE_INTERVAL)
@@ -316,7 +334,8 @@ def main():
     clients = dict.fromkeys(credentials.keys())
     for usern in clients:
         clients[usern] = dict.fromkeys(user_info_keys)
-        clients[usern]['message'] = []
+        # store offline messages
+        clients[usern]['offline_msg'] = []
         clients[usern]['status'] = 'logout'
 
     # addr_to_user = {(client_socket, client_addr): username}
