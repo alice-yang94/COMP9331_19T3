@@ -18,11 +18,13 @@ def data_handler(data):
         # format: authenticate Username/Password xxx
         return ' '.join([status[0], status[1], response])
 
+    no_rsp_need = ['whoelse', 'whoelsesince', 'broadcast', 'broadcasted',
+        'presence']
     if status[0] == 'OK':
         if status[1] == 'login' or status[1] == 'logout':
             curr_state = status[1]
             return ''
-        elif status[1] == 'whoelse' or status[1] == 'whoelsesince' :
+        elif status[1] in no_rsp_need:
             return ''
         else:
             # implement other status types

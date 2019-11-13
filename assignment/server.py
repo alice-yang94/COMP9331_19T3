@@ -8,17 +8,23 @@ from collections import defaultdict
 import threading
 import time
 
-def login(usern):
+def login(usern, client):
     clients[usern]['status'] = 'login'
     clients[usern]['login_time'] = datetime.now()
     clients[usern]['last_activate_time'] = datetime.now()
-    # implement broadcast login here...
+    clients[usern]['socket_and_addr'] = client
+    # broadcast login to all users except usern
+    message = usern + ' logged in'
+    broadcast(usern, message, True)
 
 # returns logout_flag and response
 def logout(usern, client, is_timeout):
-    # implement broadcast logout here...
-
     clients[usern]['status'] = 'logout'
+    clients[usern]['socket_and_addr'] = None
+    # broadcast logout to all users except usern
+    message = usern + ' logged out'
+    broadcast(usern, message, True)
+
     if is_timeout:
         status = 'TIMEOUT logout\n'
         msg = 'Timeout. You are logged out due to inactivity'
@@ -67,10 +73,10 @@ def authen_passw(passw, usern, client):
         msg = 'Your account is blocked due to multiple login failures. '\
             + 'Please try again later'
         return True, status + msg
-
+    
     clients[usern]['status'] = 'authen'
     if credentials[usern] == passw:
-        login(usern)
+        login(usern, client)
         status = 'OK login\n'
         msg = 'Welcome to the greatest messaging application ever!'
         return False, status + msg
@@ -92,9 +98,12 @@ def authen_passw(passw, usern, client):
     msg = 'Invalid Password. Please try again'
     return False, status + msg
 
+def online_users():
+    return [usr for usr in clients.keys() if clients[usr]['status'] == 'login']
+
 def whoelse(me):
-    all_users = clients.keys()
-    other_users = [user for user in all_users if user != me]
+    all_online_users = online_users()
+    other_users = [user for user in all_online_users if user != me]
     status = 'OK whoelse\n'
     msg = '\n'.join(other_users)
     if not other_users:
@@ -105,17 +114,39 @@ def whoelsesince(me, past_time):
     curr_time = datetime.now()
     other_users_since = []
     for user in clients:
-        diff = (curr_time - clients[user]['login_time']).seconds
-        if user != me and diff <= past_time:
-            other_users_since.append(user)
+        if clients[user]['login_time'] and user != me:
+            diff = (curr_time - clients[user]['login_time']).seconds
+            if diff <= past_time:
+                other_users_since.append(user)
     status = 'OK whoelsesince\n'
     msg = '\n'.join(other_users_since)
     if not other_users_since:
         msg = 'No one else is logged in since ' + str(past_time) + ' seconds ago.'
     return status + msg
 
-def broadcast():
-    return ''
+def broadcast(me, message, is_logging_msg):
+    # status pass to receiver
+    recv_status = 'OK broadcast\n'
+    # status return to the sender
+    sender_status = 'OK broadcasted\n'
+    # if is login/logout broadcase
+    if is_logging_msg:
+        recv_status = 'OK presence\n'
+        sender_status = ''
+
+    # send message to each online user except me
+    all_online_users = online_users()
+    for user in all_online_users:
+        csocket, _ = clients[user]['socket_and_addr']
+        if user != me:
+            response = ''
+            if is_logging_msg:
+                response += recv_status + message
+            else:
+                response += recv_status + me + ': ' + message 
+            csocket.send(response.encode())
+
+    return sender_status
 
 def block():
     return ''
@@ -147,10 +178,12 @@ def get_response(request, usern, client):
         elif tokens[0] == 'logout':
             return logout(usern, client, False)
 
-    elif len(tokens) == 2:
-        if tokens[0] == 'broadcast':
-            return False, broadcast()
-        elif tokens[0] == 'whoelsesince':
+    if len(tokens) >= 2 and tokens[0] == 'broadcast':
+        _, msg = request.split(' ', 1)
+        return False, broadcast(usern, msg, False)
+
+    if len(tokens) == 2:
+        if tokens[0] == 'whoelsesince':
             try:
                 past_time = int(tokens[1])
                 return False, whoelsesince(usern, past_time)
@@ -162,9 +195,9 @@ def get_response(request, usern, client):
         elif tokens[0] == 'unblock':
             return False, unblock()
 
-    elif len(tokens) == 3:
-        if tokens[0] == 'message':
-            return False, send_msg(tokens)
+    if len(tokens) >= 3 and tokens[0] == 'message':
+        _, _, msg = request.split(' ', 2)
+        return False, send_msg(msg)
 
     status = 'ERROR command\n'
     msg = 'Error. Invalid command'
@@ -237,6 +270,7 @@ def recv_handler():
 def send_handler():
     while True:
         with t_lock:
+            clients_logout = []
             for client in addr_to_user:
                 usern = addr_to_user[client]
                 client_socket, _ = client
@@ -245,22 +279,17 @@ def send_handler():
                     ((datetime.now() - clients[usern]['last_activate_time']).seconds) >= timeout:
                     _, msg = logout(usern, client, True)
                     client_socket.send(msg.encode())
+                    clients_logout.append(client)
                     # for debug
                     print('closing connection: ', client)
                     client_socket.close()
+            for client in clients_logout:
+                addr_to_user.pop(client, None)
             t_lock.notify()
         # sleep for 1s
         time.sleep(UPDATE_INTERVAL)
 
 def main():
-    global clients, addr_to_user, t_lock
-    # Store clients info in clients = {username: user_info_dict}
-    user_info_keys = ['client_addr', 'login_time', 'status', 
-                      'last_activate_time', 'blocked_time']
-    clients = defaultdict(lambda: dict.fromkeys(user_info_keys))
-    # addr_to_user = {(client_socket, client_addr): username}
-    addr_to_user = {}
-    
     # Create a TCP socket object(streaming)
     global server_socket
     server_socket = socket(AF_INET, SOCK_STREAM)
@@ -278,6 +307,20 @@ def main():
         for line in cred_file:
             username, password = line.split()
             credentials[username] = password
+
+    global clients, addr_to_user
+    # Store clients info in clients = {username: user_info_dict}
+    # 'client_addr' in clients not yet used
+    user_info_keys = ['login_time', 'last_activate_time', 'blocked_time'
+        'socket_and_addr']
+    clients = dict.fromkeys(credentials.keys())
+    for usern in clients:
+        clients[usern] = dict.fromkeys(user_info_keys)
+        clients[usern]['message'] = []
+        clients[usern]['status'] = 'logout'
+
+    # addr_to_user = {(client_socket, client_addr): username}
+    addr_to_user = {}
 
     global t_lock, UPDATE_INTERVAL
     # threading lock for multiple threads to access shared datastructure
