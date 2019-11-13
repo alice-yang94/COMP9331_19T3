@@ -98,6 +98,7 @@ def authen_passw(passw, usern, client):
     msg = 'Invalid Password. Please try again'
     return False, status + msg
 
+# get the list of all online users
 def online_users():
     return [usr for usr in clients.keys() if clients[usr]['status'] == 'login']
 
@@ -124,50 +125,98 @@ def whoelsesince(me, past_time):
         msg = 'No one else is logged in since ' + str(past_time) + ' seconds ago.'
     return status + msg
 
+# broadcast message and logging information
 def broadcast(me, message, is_logging_msg):
     # status pass to receiver
     recv_status = 'OK broadcast\n'
     # status return to the sender
     sender_status = 'OK broadcasted\n'
-    # if is login/logout broadcase
+    sender_msg = ''
+
+    # if not login/logout filter do not send to user who blocked me
+    filter_users = clients[me]['blocked_by']
+    # if is login/logout broadcast
     if is_logging_msg:
+        # do not send logging broadcast to the users I blocked
+        filter_users = clients[me]['blocked_users']
         recv_status = 'OK presence\n'
         sender_status = ''
 
     # send message to each online user except me
     all_online_users = online_users()
     for user in all_online_users:
-        csocket, _ = clients[user]['socket_and_addr']
-        if user != me:
-            response = ''
-            if is_logging_msg:
-                response += recv_status + message
-            else:
-                response += recv_status + me + ': ' + message 
-            csocket.send(response.encode())
-
-    return sender_status
-
-def block():
-    return ''
-
-def unblock():
-    return ''
-
-def send_msg(sender, receiver, msg):
-    if receiver in credentials.keys() and receiver != sender:
-        recv_msg = 'RECV message\n' + sender + ': ' + msg
-        if clients[receiver]['status'] == 'login':
-            csocket, _ = clients[receiver]['socket_and_addr']
-            csocket.send(recv_msg.encode())
+        if user in filter_users:
+            if not is_logging_msg:
+                sender_status = 'ERROR broadcast\n'
+                sender_msg = 'Your message could not be delivered to some recipients'
         else:
-            clients[receiver]['offline_msg'].append(recv_msg)
-        sender_status = 'OK message\n'
-        return sender_status
-    
+            csocket, _ = clients[user]['socket_and_addr']
+            if user != me:
+                response = ''
+                if is_logging_msg:
+                    response += recv_status + message
+                else:
+                    response += recv_status + me + ': ' + message 
+                csocket.send(response.encode())
+
+    return sender_status + sender_msg
+
+# block given user if the user exist, not self, not already blocked
+def block(me, block_user):
+    status = 'ERROR block\n'
+    msg = 'Error. Cannot block nonexistent user'
+    if block_user == me:
+        msg = 'Error. Cannot block self'
+    elif block_user in credentials.keys():
+        if block_user in clients[me]['blocked_users']:
+            msg = 'Error. You have already blocked ' + block_user
+        else:
+            clients[me]['blocked_users'].append(block_user)
+            for user in clients:
+                if user == block_user:
+                    clients[user]['blocked_by'].append(me)
+            status = 'OK block\n' 
+            msg = block_user + ' is blocked'
+    return status + msg
+
+# unblock given user if the user exist, not self, is currently blocked
+def unblock(me, unblock_user):
+    status = 'ERROR unblock\n'
+    msg = 'Error. Cannot unblock nonexistent user'
+    if unblock_user == me:
+        msg = 'Error. Cannot unblock self'
+    elif unblock_user in credentials.keys():
+        if unblock_user in clients[me]['blocked_users']:
+            clients[me]['blocked_users'].remove(unblock_user)
+            for user in clients:
+                if user == unblock_user:
+                    clients[user]['blocked_by'].remove(me)
+            status = 'OK unblock\n' 
+            msg = unblock_user + ' is unblocked'
+        else:
+            msg = 'Error. ' + unblock_user + ' was not blocked.'
+    return status + msg
+
+# sender msg to receiver if online, else add to offline msg list
+def send_msg(sender, receiver, msg):
     # receiver is invalid, either sender itself or not found
     sender_status = 'ERROR message\n'
     sender_msg = 'Error. Invalid user'
+    if receiver == sender:
+        sender_msg = 'Error. Cannot send message to self'
+    elif receiver in credentials.keys():
+        if receiver in clients[sender]['blocked_by']:
+            sender_msg = 'Your message could not be delivered as the '\
+                + 'recipient has blocked you'
+        else:
+            recv_msg = 'RECV message\n' + sender + ': ' + msg
+            if clients[receiver]['status'] == 'login':
+                csocket, _ = clients[receiver]['socket_and_addr']
+                csocket.send(recv_msg.encode())
+            else:
+                clients[receiver]['offline_msg'].append(recv_msg)
+            sender_status = 'OK message\n'
+            sender_msg = ''
     return sender_status + sender_msg
 
 # returns logout_flag and response
@@ -202,9 +251,9 @@ def get_response(request, usern, client):
                 # if second parameter not integer, invalid command 
                 pass
         elif tokens[0] == 'block':
-            return False, block()
+            return False, block(usern, tokens[1])
         elif tokens[0] == 'unblock':
-            return False, unblock()
+            return False, unblock(usern, tokens[1])
 
     if len(tokens) >= 3 and tokens[0] == 'message':
         _, receiver, msg = request.split(' ', 2)
@@ -336,6 +385,8 @@ def main():
         clients[usern] = dict.fromkeys(user_info_keys)
         # store offline messages
         clients[usern]['offline_msg'] = []
+        clients[usern]['blocked_users'] = []
+        clients[usern]['blocked_by'] = []
         clients[usern]['status'] = 'logout'
 
     # addr_to_user = {(client_socket, client_addr): username}

@@ -45,6 +45,7 @@ def data_handler(data):
         curr_state = 'logout'
         return ''
     else:
+        # ERROR message, do nothing except show msg
         # implement other status types
         return ''
 
