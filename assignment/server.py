@@ -8,11 +8,13 @@ from collections import defaultdict
 import threading
 import time
 
-def login(usern, client):
+def login(usern, client, private_addr):
     clients[usern]['status'] = 'login'
     clients[usern]['login_time'] = datetime.now()
     clients[usern]['last_activate_time'] = datetime.now()
     clients[usern]['socket_and_addr'] = client
+    # private server addr from user, separate by space
+    clients[usern]['private_addr'] = private_addr
     # broadcast login to all users except usern
     message = usern + ' logged in'
     broadcast(usern, message, True)
@@ -50,16 +52,10 @@ def check_blocked(usern):
 # returns logout_flag and response
 def authen_usern(input_usern, client):
     if input_usern in credentials.keys():
-        # if usern is blocked
-        if check_blocked(input_usern):
-            status = 'ERROR login\n'
-            msg = 'Your account is blocked due to multiple login failures. '\
-                + 'Please try again later'
-            return True, status + msg
-        else:
-            addr_to_user[client] = input_usern
+        addr_to_user[client] = input_usern
+        if not check_blocked(input_usern):
             clients[input_usern]['status'] = 'authen'
-            return False, 'authenticate Password\n'
+        return False, 'authenticate Password\n'
 
     # response: line1 - responseStatus, line2 - message
     status = 'authenticate Username\n'
@@ -67,7 +63,8 @@ def authen_usern(input_usern, client):
     return False, status + msg
 
 # returns logout_flag and response
-def authen_passw(passw, usern, client):
+def authen_passw(passw_and_addr, usern, client):
+    passw, private_addr = passw_and_addr.split('\n')
     if check_blocked(usern):
         status = 'ERROR login\n'
         msg = 'Your account is blocked due to multiple login failures. '\
@@ -76,7 +73,7 @@ def authen_passw(passw, usern, client):
     
     clients[usern]['status'] = 'authen'
     if credentials[usern] == passw:
-        login(usern, client)
+        login(usern, client, private_addr)
         status = 'OK login\n'
         msg = 'Welcome to the greatest messaging application ever!'
         return False, status + msg
@@ -219,18 +216,48 @@ def send_msg(sender, receiver, msg):
             sender_msg = ''
     return sender_status + sender_msg
 
+# get the addr and port of user if available
+def get_private_addr(me, user_to_conn):
+    status = 'ERROR startprivate\n'
+    if user_to_conn in credentials.keys():
+        if me == user_to_conn:
+            # can't connect to self
+            msg = 'Error. Cannot start private messaging with self'
+        elif me in clients[user_to_conn]['blocked_users']:
+            # blocked by user_to_conn
+            msg = 'Error. Cannot start private messaging. ' \
+                + user_to_conn + ' has blocked you' 
+        elif clients[user_to_conn]['status'] == 'login':
+                # send addr and port back
+                private_addr = clients[user_to_conn]['private_addr']
+                status = 'OK startprivate {} {}\n'.format(user_to_conn, private_addr)
+                msg = ''
+        else:
+            # user_to_conn is offline
+            msg = 'Error. Cannot start private messaging. '\
+                + '{} is offline'.format(user_to_conn)
+    else:
+        # username is invalid
+        msg = 'Error. Invalid user'
+    return status + msg
+
+
 # returns logout_flag and response
 def get_response(request, usern, client):
     tokens = request.split()
-    if len(tokens) == 3 and tokens[0] == 'authenticate':
+
+    if tokens[0] == 'authenticate':
         if tokens[1] == 'Username':
-            return authen_usern(tokens[2], client)
-        elif tokens[1] == 'Password':
-            return authen_passw(tokens[2], usern, client)
-    if len(tokens) > 3 and tokens[0] == 'authenticate':
-        status = 'authenticate ' + tokens[1] + '\n'
-        msg = 'Invalid ' + tokens[1] + '. Please try again.'
-        return False, status + msg
+            if len(tokens) == 3:
+                return authen_usern(tokens[2], client)
+            else:
+                status = 'authenticate ' + tokens[1] + '\n'
+                msg = 'Invalid ' + tokens[1] + '. Please try again.'
+                return False, status + msg
+
+        if tokens[1] == 'Password':
+            _, _, passw_and_addr = request.split(' ', 2)
+            return authen_passw(passw_and_addr, usern, client)
 
     if len(tokens) == 1:
         if tokens[0] == 'whoelse':
@@ -254,6 +281,8 @@ def get_response(request, usern, client):
             return False, block(usern, tokens[1])
         elif tokens[0] == 'unblock':
             return False, unblock(usern, tokens[1])
+        elif tokens[0] == 'startprivate':
+            return False, get_private_addr(usern, tokens[1])
 
     if len(tokens) >= 3 and tokens[0] == 'message':
         _, receiver, msg = request.split(' ', 2)
@@ -273,8 +302,7 @@ def conn_handler():
             client_socket.setblocking(False)
             # For debug: 
             print('Got connection from', client_addr)
-            with t_lock:         
-                response = ''
+            with t_lock:
                 # new connection setup
                 addr_to_user[(client_socket, client_addr)] = ''
                 # ask for username
