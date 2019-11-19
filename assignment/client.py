@@ -10,15 +10,12 @@ from collections import defaultdict
 
 # initiate connection with user_to_conn, add user info to private_conns
 def initiate_priv_conn(user_to_conn, private_addr):
-    if user_to_conn in conns:
-        print('Error. You have already connected with ', user_to_conn)
+    if user_to_conn in conns and conns[user_to_conn]['state']:
+        print('Error. You have already connected with ' + user_to_conn)
     else:
         try:
             # set up a new private client socket and connect to private addr
             privClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            
-            print('connect to: ', private_addr)
-
             privClientSocket.connect(private_addr)
             privClientSocket.setblocking(False)
 
@@ -26,15 +23,31 @@ def initiate_priv_conn(user_to_conn, private_addr):
             clientSockets[privClientSocket]['username'] = user_to_conn
             clientSockets[privClientSocket]['addr_and_port'] = private_addr
 
-            # {username: {'socket':privClientSocket, 'state': connecting/active} }
+            # {username: {'socket':privClientSocket, 'state': True for active} }
             conns[user_to_conn]['socket'] = privClientSocket
-            conns[user_to_conn]['state'] = 'active'
+            conns[user_to_conn]['state'] = True
         except:
             print('Error. {} is offline'.format(user_to_conn))
     return
 
-# handle the data received from server
-def data_handler(data):
+def set_username(username, curr_socket):
+    clientSockets[curr_socket] = username
+    # set conns info
+    conns[username]['socket'] = curr_socket
+    conns[username]['state'] = True
+
+def prepare_to_logout():
+    # send msg to all connected private sockets
+    conn_users = list(conns.keys())
+    for user in conn_users:
+        if user != 'original server' and conns[user]['state']:
+            user_socket = conns[user]['socket']
+            logout_status = 'logoutprivate ' + my_name + '\n'
+            user_socket.send(logout_status.encode())
+            conns.pop(user, None)
+
+# handle the data received from the curr_socket(can be server or any users)
+def data_handler(data, curr_socket):
     global curr_state, my_name
     status, msg = data.split('\n',1)
     status = status.split()
@@ -54,25 +67,52 @@ def data_handler(data):
 
     # change current state of client of login/logout
     if status[0] == 'OK':
-        if status[1] == 'login' or status[1] == 'logout':
+        if status[1] == 'login':
+            curr_state = status[1]
+        elif status[1] == 'logout':
+            prepare_to_logout()
             curr_state = status[1]
         elif status[1] == 'startprivate':
             user_to_conn = status[2]
             private_addr = (status[3], int(status[4]))
             initiate_priv_conn(user_to_conn, private_addr)
         elif status[1] == 'connected':
-            return 'my_name ' + my_name
+            return 'my_name ' + my_name + '\n'
+        elif status[1] == 'stopprivate':
+            # user replied for the stopprivate I initiated, rm user socket
+            clientSockets.pop(curr_socket, None)
+            curr_socket.close()
+
     # logout if received timeout msg from server due to inactivity
     # or account blocked due to multiple attempts of wrong passwords
     elif status[0] == 'TIMEOUT' \
         or (status[0] == 'ERROR' and status[1] == 'login'):
         curr_state = 'logout'
+    
+    elif status[0] == 'my_name':
+        set_username(status[1], curr_socket)
+    
+    elif status[0] == 'logoutprivate':
+        # remove user logged out from each list
+        user_loggedout = status[1]
+        conns[user_loggedout]['state'] = False
+        clientSockets.pop(curr_socket, None)
+        curr_socket.close()
+    
+    elif status[0] == 'stopprivatefrom':
+        # user wish to stop private conn with me
+        user_want_stop = status[1]
+        # remove user from conns and clientsockets
+        conns.pop(user_want_stop, None)
+        clientSockets.pop(curr_socket, None)
+        curr_socket.close()
+        return 'OK stopprivate ' + my_name + '\n'
 
     # all other status is used for debugging, no respond needed
     return ''
 
 # accept the private connections with other users as a server
-def private_server_handler():
+def private_conn_handler():
     while curr_state != 'logout':
         if curr_state == 'login':
             try:
@@ -80,8 +120,7 @@ def private_server_handler():
                 user_socket, user_addr = privServerSocket.accept()
                 # set client socket to non blocking
                 user_socket.setblocking(False)
-                # For debug: 
-                print('Got connection from', user_addr)
+
                 with t_lock:
                     # new connection setup
                     clientSockets[user_socket]['username'] = ''
@@ -98,41 +137,82 @@ def private_server_handler():
                     t_lock.notify()
             except:
                 pass
-
     # Close the sockets
     if curr_state == 'logout':
         privServerSocket.close()
 
-def set_username(username, curr_socket):
-    clientSockets[curr_socket] = username
-    # set conns info
-    conns[username]['socket'] = curr_socket
-    conns[username]['state'] = 'active'
 
-def request_deliver(request, curr_socket):
-    # handle request, if request belongs to server, return it
-    # else, return False
+# examine request, find socket that the request should goes to
+def request_deliver(request):
+    # return False if send nothing to any socket
+    no_request = False, False
     if request:
         tokens = request.split()
-        
+        receiver = 'original server'
+        socket = conns['original server']['socket']
         if tokens[0] == 'startprivate':
-            return request
+            return request, socket
+
         elif tokens[0] == 'private':
-            return False
+            # private receiver msg
+            if len(tokens) > 2:    
+                _, receiver, msg = request.split(' ', 2)
+                if receiver in conns.keys():
+                    if conns[receiver]['state']:
+                        socket = conns[receiver]['socket']
+                        request += '\n{}(private): {}'.format(my_name, msg)
+                        return request, socket
+                    else:
+                        # private conn started but receiver is offline now
+                        print(f'Cannot deliver message to {receiver},' \
+                                + f' {receiver} is offline now')
+                elif receiver == my_name:
+                    print('Error. Cannot send private message to self')
+                else:
+                    print('Error. Private messaging to {} not enabled'.format(receiver))
+            elif len(tokens) == 2:
+                print('Error. Empty message')
+            else:
+                print('Error. Invalid command')
+            return no_request
+            
         elif tokens[0] == 'stopprivate':
-            return False
-        elif tokens[0] == 'myname':
-            set_username(tokens[1], curr_socket)
-            return False
+            if len(tokens) == 2:
+                # tell user to i'm closing the socket
+                user_to_stop = tokens[1]
+                socket = conns[user_to_stop]['socket']
+                conns.pop(user_to_stop, None)
+                print('Stop private messaging with ' + user_to_stop)
+                request = 'stopprivatefrom ' + my_name + '\n'
+                return request, socket
+            else:
+                print('Error. Invalid command')
+
+            return no_request
         
-        return request
+        return request, socket
 
     # if request is empty
     print('Error. Empty command')
-    return False 
+    return no_request
 
 
-# handle the connection with server
+# thread that handle console input and send to corresponding socket
+def input_handler():
+    while curr_state != 'logout':
+        with t_lock:
+            # if login and there is input, send it to server, else continue
+            if curr_state == 'login' \
+                and sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                # remove newline by [:-1]
+                request = sys.stdin.readline()[:-1]
+                request, socket = request_deliver(request)
+                if request:
+                    socket.send(request.encode())
+            t_lock.notify()
+
+
+# handle data received from all sockets(including server and private users)
 def recv_handler():
     while curr_state != 'logout':
         with t_lock:
@@ -143,21 +223,11 @@ def recv_handler():
                 try:
                     data = curr_socket.recv(2048).decode()
                     if data:
-                        response = data_handler(data).encode()
+                        response = data_handler(data, curr_socket)
                         if curr_state != 'logout' and response:
-                            curr_socket.send(response)
+                            curr_socket.send(response.encode())
                 except:
                     pass
-
-                # if login and there is input, send it to server, else continue
-                if curr_state == 'login' \
-                    and sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                    # remove newline by [:-1]
-                    request = sys.stdin.readline()[:-1]
-                    request = request_deliver(request, curr_socket)
-                    if request:
-                        curr_socket.send(request.encode())
-
             t_lock.notify()
     
     with t_lock:
@@ -197,7 +267,7 @@ def main():
     my_name = ''
 
     # all connections maintained(once inactive, remove from list): 
-    # {username: {'socket':clientSocket, 'state': connecting/active} }
+    # {username: {'socket':clientSocket, 'state': offline/active} }
     conn_keys = ['socket', 'state']
     conns = defaultdict(lambda: dict.fromkeys(conn_keys))
     # use original server to avoid same as username (username has no space)
@@ -209,25 +279,28 @@ def main():
     clientSockets[clientSocket]['username'] = 'original server'
     clientSockets[clientSocket]['addr_and_port'] = server_address
 
-
     global t_lock, UPDATE_INTERVAL
     # threading lock for multiple threads to access shared datastructure
     t_lock = threading.Condition()
     # would communicate with clients after every second
     UPDATE_INTERVAL = 1
     
+    # 3 daemon threads for receiving message from clients and server,
+    # accepting private connections
+    # handling user input and send to correct socket
     recv_thread=threading.Thread(name = "recvHandler",target = recv_handler)
     recv_thread.daemon=True
     recv_thread.start()
     
-    priv_server_thread = threading.Thread(name = "privServerHandler", target = private_server_handler)
-    priv_server_thread.daemon = True
-    priv_server_thread.start()
+    priv_conn_thread = threading.Thread(name = "privConnHandler", target = private_conn_handler)
+    priv_conn_thread.daemon = True
+    priv_conn_thread.start()
 
-    #priv_client_thread = threading.Thread(name = "privConnHandler", target = private_client_handler)
-    #priv_client_thread.daemon = True
-    #priv_client_thread.start()
+    input_thread=threading.Thread(name = "inputHandler",target = input_handler)
+    input_thread.daemon=True
+    input_thread.start()
     
+    # program stop when user is logged out
     while curr_state != 'logout':
         time.sleep(0.1)
     

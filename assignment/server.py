@@ -300,8 +300,7 @@ def conn_handler():
             client_socket, client_addr = server_socket.accept()
             # set client socket to non blocking
             client_socket.setblocking(False)
-            # For debug: 
-            print('Got connection from', client_addr)
+
             with t_lock:
                 # new connection setup
                 addr_to_user[(client_socket, client_addr)] = ''
@@ -316,31 +315,28 @@ def conn_handler():
         except:
             pass
 
+# handle request from clients and if there is response, send response back
 def request_handler(client, usern, client_socket):
     logout_flag = False
     try:
         # Get the request data
         request = client_socket.recv(2048).decode()
-        #debug:
-        print('request: ', request)
+
         if usern and clients[usern]['status'] == 'login':
             clients[usern]['last_activate_time'] = datetime.now()
         logout_flag, response = get_response(request, usern, client)
         
         if response:
-            #debug:
-            print('response: ', response)
             # Send the responseStatus and message back to the client
             client_socket.send(response.encode())
         if logout_flag:
-            # for debug
-            print('closing connection: ', client)
             client_socket.close()
     except:
         # if no request catched, continue
         pass
     return logout_flag
 
+# handle received message from all clients, and pop logged out clients
 def recv_handler():
     while True:
         with t_lock:
@@ -355,6 +351,8 @@ def recv_handler():
                 addr_to_user.pop(client, None)
             t_lock.notify()
 
+# handle sending timeout msg to all online users,
+#  and send offline msg if user just loggedin
 def send_handler():
     while True:
         with t_lock:
@@ -370,8 +368,7 @@ def send_handler():
                     client_socket.send(msg.encode())
                     # remove logged out client from addr_to_user dict
                     addr_to_user.pop(client, None)
-                    # for debug
-                    print('closing connection: ', client)
+
                     # close conn
                     client_socket.close()
                 else:
@@ -429,6 +426,9 @@ def main():
     # Wait for client connection, queue up to 10 connect request
     server_socket.listen(10)
 
+    # 3 daemon threads for accepting new connection, 
+    # receive message from clients,
+    # send request to clients
     conn_thread=threading.Thread(name = "ConnHandler",target = conn_handler)
     conn_thread.daemon=True
     conn_thread.start()
@@ -441,6 +441,7 @@ def main():
     send_thread.daemon=True
     send_thread.start()
 
+    # server should keep running forever until force quit
     while True:
         time.sleep(0.1)
            
