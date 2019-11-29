@@ -1,0 +1,19 @@
+traceroute to www.lancaster.ac.uk (148.88.65.80), 30 hops max, 60 byte packets
+ 1  cserouter1-server.cse.unsw.EDU.AU (129.94.242.251)  0.084 ms  0.057 ms  0.069 ms
+ 2  129.94.39.17 (129.94.39.17)  0.879 ms  0.867 ms  0.870 ms
+ 3  ombudnex1-vl-3154.gw.unsw.edu.au (149.171.253.35)  1.242 ms libudnex1-vl-3154.gw.unsw.edu.au (149.171.253.34)  1.443 ms ombudnex1-vl-3154.gw.unsw.edu.au (149.171.253.35)  1.182 ms
+ 4  libcr1-po-5.gw.unsw.edu.au (149.171.255.165)  1.107 ms libcr1-po-6.gw.unsw.edu.au (149.171.255.201)  1.102 ms ombcr1-po-5.gw.unsw.edu.au (149.171.255.197)  1.070 ms
+ 5  unswbr1-te-1-9.gw.unsw.edu.au (149.171.255.101)  1.130 ms unswbr1-te-2-13.gw.unsw.edu.au (149.171.255.105)  1.127 ms  1.159 ms
+ 6  138.44.5.0 (138.44.5.0)  1.231 ms  1.354 ms  1.293 ms
+ 7  et-2-0-5.bdr1.sing.sin.aarnet.net.au (113.197.15.233)  92.620 ms  92.577 ms  92.568 ms
+ 8  138.44.226.7 (138.44.226.7)  256.193 ms  256.183 ms  256.147 ms
+ 9  janet-gw.mx1.lon.uk.geant.net (62.40.124.198)  256.269 ms  256.226 ms  256.218 ms
+10  ae29.londpg-sbr2.ja.net (146.97.33.2)  256.755 ms  256.718 ms  256.738 ms
+11  ae31.erdiss-sbr2.ja.net (146.97.33.22)  260.462 ms  260.461 ms  260.352 ms
+12  ae29.manckh-sbr2.ja.net (146.97.33.42)  262.334 ms  267.999 ms  267.981 ms
+13  ae24.lanclu-rbr1.ja.net (146.97.38.58)  264.664 ms  264.690 ms  264.652 ms
+14  lancaster-university.ja.net (194.81.46.2)  279.841 ms  279.691 ms  279.685 ms
+15  is-border01.bfw01.rtr.lancs.ac.uk (148.88.253.202)  265.079 ms  265.069 ms  265.092 ms
+16  bfw01.iss-servers.is-core01.rtr.lancs.ac.uk (148.88.250.98)  269.493 ms  267.519 ms  267.919 ms
+17  * * *
+18  www.lancs.ac.uk (148.88.65.80)  265.220 ms !X  265.204 ms !X  265.150 ms !X

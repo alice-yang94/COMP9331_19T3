@@ -1,0 +1,24 @@
+traceroute to www.columbia.edu (128.59.105.24), 30 hops max, 60 byte packets
+ 1  cserouter1-server.cse.unsw.EDU.AU (129.94.242.251)  0.083 ms  0.066 ms  0.066 ms
+ 2  129.94.39.17 (129.94.39.17)  0.897 ms  0.868 ms  0.818 ms
+ 3  ombudnex1-vl-3154.gw.unsw.edu.au (149.171.253.35)  1.604 ms  1.593 ms libudnex1-vl-3154.gw.unsw.edu.au (149.171.253.34)  1.505 ms
+ 4  libcr1-po-5.gw.unsw.edu.au (149.171.255.165)  1.139 ms ombcr1-po-5.gw.unsw.edu.au (149.171.255.197)  1.116 ms  1.149 ms
+ 5  unswbr1-te-1-9.gw.unsw.edu.au (149.171.255.101)  1.101 ms  1.139 ms unswbr1-te-2-13.gw.unsw.edu.au (149.171.255.105)  1.137 ms
+ 6  138.44.5.0 (138.44.5.0)  1.277 ms  1.319 ms  1.309 ms
+ 7  et-1-3-0.pe1.sxt.bkvl.nsw.aarnet.net.au (113.197.15.149)  2.046 ms  4.410 ms  4.536 ms
+ 8  et-0-0-0.pe1.a.hnl.aarnet.net.au (113.197.15.99)  95.183 ms  95.088 ms  95.073 ms
+ 9  et-2-1-0.bdr1.a.sea.aarnet.net.au (113.197.15.201)  146.615 ms  146.571 ms  146.578 ms
+10  abilene-1-lo-jmb-706.sttlwa.pacificwave.net (207.231.240.8)  146.689 ms  146.645 ms  146.671 ms
+11  et-4-0-0.4079.rtsw.miss2.net.internet2.edu (162.252.70.0)  157.427 ms  157.432 ms  157.487 ms
+12  et-4-0-0.4079.rtsw.minn.net.internet2.edu (162.252.70.58)  180.517 ms  180.458 ms  180.437 ms
+13  et-1-1-5.4079.rtsw.eqch.net.internet2.edu (162.252.70.106)  188.726 ms  196.101 ms  195.568 ms
+14  ae-0.4079.rtsw3.eqch.net.internet2.edu (162.252.70.163)  188.544 ms  188.466 ms  188.471 ms
+15  ae-1.4079.rtsw.clev.net.internet2.edu (162.252.70.130)  196.925 ms  197.043 ms  197.090 ms
+16  buf-9208-I2-CLEV.nysernet.net (199.109.11.33)  201.265 ms  202.606 ms  202.593 ms
+17  syr-9208-buf-9208.nysernet.net (199.109.7.193)  204.594 ms  204.594 ms  204.416 ms
+18  nyc111-9204-syr-9208.nysernet.net (199.109.7.94)  213.833 ms  213.695 ms  213.625 ms
+19  nyc-9208-nyc111-9204.nysernet.net (199.109.7.165)  213.749 ms  214.340 ms  214.582 ms
+20  columbia.nyc-9208.nysernet.net (199.109.4.14)  214.567 ms  214.802 ms  214.699 ms
+21  cc-core-1-x-nyser32-gw-1.net.columbia.edu (128.59.255.5)  231.822 ms  227.554 ms  215.512 ms
+22  cc-conc-1-x-cc-core-1.net.columbia.edu (128.59.255.21)  214.128 ms  214.109 ms  214.236 ms
+23  teachtechaward.org (128.59.105.24)  213.967 ms  213.988 ms  214.117 ms

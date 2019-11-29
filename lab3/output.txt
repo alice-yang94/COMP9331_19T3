@@ -1,0 +1,37 @@
+
+; <<>> DiG 9.9.5-9+deb8u18-Debian <<>> www.cecs.anu.edu.au
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 7490
+;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 4, ADDITIONAL: 9
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 4096
+;; QUESTION SECTION:
+;www.cecs.anu.edu.au.		IN	A
+
+;; ANSWER SECTION:
+www.cecs.anu.edu.au.	1176	IN	CNAME	rproxy.cecs.anu.edu.au.
+rproxy.cecs.anu.edu.au.	622	IN	A	150.203.161.98
+
+;; AUTHORITY SECTION:
+edu.au.			14841	IN	NS	s.au.
+edu.au.			14841	IN	NS	q.au.
+edu.au.			14841	IN	NS	t.au.
+edu.au.			14841	IN	NS	r.au.
+
+;; ADDITIONAL SECTION:
+q.au.			681	IN	A	65.22.196.1
+q.au.			17678	IN	AAAA	2a01:8840:be::1
+r.au.			1755	IN	A	65.22.197.1
+r.au.			17678	IN	AAAA	2a01:8840:bf::1
+s.au.			81229	IN	A	65.22.198.1
+s.au.			81229	IN	AAAA	2a01:8840:c0::1
+t.au.			3243	IN	A	65.22.199.1
+t.au.			17678	IN	AAAA	2a01:8840:c1::1
+
+;; Query time: 0 msec
+;; SERVER: 129.94.208.2#53(129.94.208.2)
+;; WHEN: Tue Oct 08 15:24:25 AEDT 2019
+;; MSG SIZE  rcvd: 325
+

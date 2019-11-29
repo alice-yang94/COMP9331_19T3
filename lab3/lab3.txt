@@ -1,0 +1,20 @@
+Ex3
+Q1:
+150.203.161.98
+Type: A. Command: dig www.cecs.anu.edu.au
+
+
+Q2:
+rproxy.cecs.anu.edu.au.
+
+For the multiple web servers running on different ports on a single IP address, the CName aliases allow different servers to have their own entry in the DNS. Sometimes, the aliases can be shorter and easier to memorise. 
+
+Ref:https://www.pickaweb.co.uk/kb/cname-can-use-domain/
+
+
+Q3:
+Authority: a list of nameservers that are authoritative for the request record. There are four nameservers: s
+Additional sections: IPv4 and IPv6 addresses of the nameservers in the authority section.
+
+Q4:
+

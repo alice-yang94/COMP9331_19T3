@@ -1,0 +1,14 @@
+traceroute to www.telstra.net (203.50.5.178), 30 hops max, 60 byte packets
+ 1  cserouter1-server.cse.unsw.EDU.AU (129.94.242.251)  0.091 ms  0.067 ms  0.060 ms
+ 2  129.94.39.17 (129.94.39.17)  0.858 ms  0.821 ms  0.825 ms
+ 3  libudnex1-vl-3154.gw.unsw.edu.au (149.171.253.34)  1.824 ms  1.819 ms  1.788 ms
+ 4  libcr1-po-6.gw.unsw.edu.au (149.171.255.201)  19.011 ms libcr1-po-5.gw.unsw.edu.au (149.171.255.165)  19.011 ms ombcr1-po-5.gw.unsw.edu.au (149.171.255.197)  1.072 ms
+ 5  unswbr1-te-1-9.gw.unsw.edu.au (149.171.255.101)  1.155 ms  1.144 ms unswbr1-te-2-13.gw.unsw.edu.au (149.171.255.105)  1.193 ms
+ 6  138.44.5.0 (138.44.5.0)  1.282 ms  1.248 ms  1.249 ms
+ 7  xe-0-0-0.bdr1.rsby.nsw.aarnet.net.au (113.197.15.33)  1.354 ms  1.575 ms  1.523 ms
+ 8  gigabitethernet3-11.ken37.sydney.telstra.net (139.130.0.77)  2.337 ms  2.330 ms  2.401 ms
+ 9  bundle-ether13.ken-core10.sydney.telstra.net (203.50.11.94)  3.598 ms  3.469 ms  2.930 ms
+10  bundle-ether10.win-core10.melbourne.telstra.net (203.50.11.123)  15.171 ms bundle-ether13.chw-core10.sydney.telstra.net (203.50.11.98)  3.168 ms bundle-ether10.win-core10.melbourne.telstra.net (203.50.11.123)  15.150 ms
+11  bundle-ether8.exi-core10.melbourne.telstra.net (203.50.11.125)  13.684 ms  13.674 ms  13.647 ms
+12  bundle-ether2.exi-ncprouter101.melbourne.telstra.net (203.50.11.209)  14.442 ms  14.251 ms  14.064 ms
+13  www.telstra.net (203.50.5.178)  12.908 ms  12.879 ms  12.903 ms
